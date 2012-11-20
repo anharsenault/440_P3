@@ -78,45 +78,57 @@ Dalong Cheng(dalongc)
 In 15440 project 3, we are going to implement a robust solution for
 echo server model. The echo client will send to echo manager some echo messages
 , upon receiving the echo message, the echo manager will log the message and 
-dispatch request to a backend echo server, the echo server will store the echo message, then send identical message back to client. The feautres will be described in following sections in more detail. 
+dispatch request to a backend echo server, the echo server will store the echo 
+message, then send identical message back to client. The feautres of the 
+system will be described in following sections in more detail. 
 
 The reason why we choose to implement a echo server is that
-we want to focus on design and implement a reliable and solid solution
-for distributed system rather than spending too much on application log. 
+we want to focus our energy on designning and implementing a reliable solution
+for distributed system rather than spending too much on application level logic. 
 Since most of the distributed
 application can be abstracted as echo server like model, which involving
-sending, receiving message and/or sharing state among multiple nodes, we 
+sending, receiving message and/or sharing state among multiple nodes. We 
 can easily extend this project into reliable application, such as 
 ticket reservation system, online game, etc.
 
 \begin{figure}[H] % Example image
-\center{\includegraphics[width=0.5\linewidth]{1.png}}
+\center{\includegraphics[width=0.65\linewidth]{1.png}}
 \caption{General Architecture}
 \label{fig:speciation}
 \end{figure}
 
 \section{Features}
-\subsection{Crash Recovery}
-We will use Write-Ahead Logging (WAL) method to enable echo manager recover form
-failure. The echo manager will record all the ecoh request it receivevd from echo 
-client. The log will contain some meta data for later recovery. When echo manager 
-crashes, firtsly, we will analysis the log, then recover the system from the crash. 
+\subsection{Record Log}
+We will use log to record all the request information on echo server side. Echo log
+entry will keep meta data like, where and when the request is received. The log can
+be extended to support features like redo or undo operation.
+
 \subsection{Job Partition}
 The echo manager will dispatch work for all the echo servers. We will use hash ring
 method to allocate work to each echo server. The system will also support dynamic
-joinning and leaving.
+joinning.
+
 \subsection{Data Replication}
-Need discussion
+The data replication is the most important feature we are going to implement for this 
+project. In second tier, we are going to implement the primary backup mechnism for the
+echo servers, the echo manager will act as failure detector for all the echo servers. 
+To make life easier, we will assume the echo manager never fail. In third tier, we will
+try our best to implement a robust paxos solution to replace the primary backup mechnism. 
 
 \section{General Design}
 The whole system will be developed with Go programming language on Linux 
-environment. We divide our work into 3 tiers, each tier will be based on previously work. The first tier will implement the most basic function and the third tier will contain more ``advanced'' function.
+environment. We divide our work into 3 tiers, each tier will be based on 
+previously work. The first tier will implement the most core and basic function 
+and the last tier will implement more ``advanced'' function and be able to 
+deal with more complicate situation.
 
 \subsection{First Tier}
 The first tier will have one echo client, echo manager and echo server. The
-echo manager will support crash recovery by using WAL method.  
+echo server will record all the request information into log file. This is the
+easiest part to implement.
+
 \begin{figure}[H]
-\center{\includegraphics[width=0.5\linewidth]{2.png}}
+\center{\includegraphics[width=0.6\linewidth]{2.png}}
 \caption{First Tier}
 \label{fig:speciation}
 \end{figure}
@@ -125,20 +137,25 @@ echo manager will support crash recovery by using WAL method.
 The second tier will support multiple echo clients and multiple echo servers. 
 We will add feature to enable echo manager to uniformly dispatch the work 
 to all the echo server. The echo manager will also need to response appropriately 
-to echo server leave and join.
+to echo server join. An important feature added to this tier is primary backup mechnism.
+The echo manager will act as central server to detect failure and manage replication
+among the echo servers.
+
 \begin{figure}[H]
-\center{\includegraphics[width=0.5\linewidth]{3.png}}
+\center{\includegraphics[width=0.6\linewidth]{3.png}}
 \caption{Second Tier}
 \label{fig:speciation}
 \end{figure}
 
 \subsection{Third Tier}
 Based on the previous tiers of work, the third tier will further support 
-replication among all the echo server. 
+replication by replacing the primary backup with a more sophiscated paxos protocal. 
+we will try our best to implement a simple paxos application with a lot of testcases 
+to ensure its correctness 
 
 \subsection{Component API}
-Need discussion here
-
+The API maybe change during development, we just list some basic function for each 
+component \\ \\ 
 Echo Client
 \begin{itemize}
   \item \texttt{send - send echo message}  
@@ -146,11 +163,11 @@ Echo Client
 \end{itemize}
 Echo Manager
 \begin{itemize}
-  \item \texttt{join - set track for the player to play}  
+  \item \texttt{join - invoked as RPC by echo server which join the system}
 \end{itemize}
 Echo Server
 \begin{itemize}
-  \item \texttt{position - indicate conductor to set to given position}
+  \item \texttt{position - }
 \end{itemize}
 
 \section{Test Plan}
@@ -164,12 +181,16 @@ cover each function in every component, to garantee it generate expected
 result, given expceted input.
 
 \subsection{Integration Test}
-The integration test is to test all the components as whole. Fail recovery,
-dynamic node join or leave and replication will be the key test point.
+The integration test is to test all the components as whole system. Replication,
+dynamic node join will be the key test point. We will explicitly kill echo server
+and monitor the whole system status information to make sure everything goes well.
 
 \subsection{Stress Test}
 In the stress test, we will create as many echo client as possible to test
-the limit of the whole system.
+the limit of the whole system. During testing, we will create different number 
+of echo client and server. The echo client will constantly sending random 
+generated message, and we will also random kill ``some'' given number of echo
+server.
 
 \section{Timeline}
 \begin{figure}[H]
@@ -180,7 +201,8 @@ the limit of the whole system.
 
 \section{Evalutation}
 Our system should support many echo clients working simultenously and   
-making progress. There are several point to evaluate.
+making progress. There are several point to evaluate. We will develop testcases
+for each of these points.
 \begin{enumerate}
   \item Echo manager will record all the request from client, it 
     should be able to reover from crashing, upon recovery
