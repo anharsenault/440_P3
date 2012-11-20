@@ -79,8 +79,8 @@ In 15440 project 3, we are going to implement a robust solution for
 echo server model. The echo client will send to echo manager some echo messages
 , upon receiving the echo message, the echo manager will log the message and 
 dispatch request to a backend echo server, the echo server will store the echo 
-message, then send identical message back to client. The feautres of the 
-system will be described in following sections in more detail. 
+message to a log file, then send identical message back to client. The feautres of the 
+system will be described in detail in following sections. 
 
 The reason why we choose to implement a echo server is that
 we want to focus our energy on designning and implementing a reliable solution
@@ -100,13 +100,14 @@ ticket reservation system, online game, etc.
 \section{Features}
 \subsection{Record Log}
 We will use log to record all the request information on echo server side. Echo log
-entry will keep meta data like, where and when the request is received. The log can
-be extended to support features like redo or undo operation.
+entry will keep meta data, such as where and when the request is received. The log can
+be extended to support features like redo or undo operation. The log can also be used
+for user to analysis the situation.
 
 \subsection{Job Partition}
 The echo manager will dispatch work for all the echo servers. We will use hash ring
-method to allocate work to each echo server. The system will also support dynamic
-joinning.
+method to register newly joined echo server. Echo manager will also dispatch work to each echo server. 
+The method will garanteed that all the loads among echo server is rougly balanced.
 
 \subsection{Data Replication}
 The data replication is the most important feature we are going to implement for this 
@@ -117,13 +118,13 @@ try our best to implement a robust paxos solution to replace the primary backup 
 
 \section{General Design}
 The whole system will be developed with Go programming language on Linux 
-environment. We divide our work into 3 tiers, each tier will be based on 
+environment. We mainly divide our work into 3 tiers, each tier will be based on 
 previously work. The first tier will implement the most core and basic function 
-and the last tier will implement more ``advanced'' function and be able to 
+and the last tier will implement more ``advanced'' function which is able to 
 deal with more complicate situation.
 
 \subsection{First Tier}
-The first tier will have one echo client, echo manager and echo server. The
+The first tier will have one echo client, one echo manager and one echo server. The
 echo server will record all the request information into log file. This is the
 easiest part to implement.
 
@@ -150,40 +151,25 @@ among the echo servers.
 \subsection{Third Tier}
 Based on the previous tiers of work, the third tier will further support 
 replication by replacing the primary backup with a more sophiscated paxos protocal. 
-we will try our best to implement a simple paxos application with a lot of testcases 
-to ensure its correctness 
-
-\subsection{Component API}
-The API maybe change during development, we just list some basic function for each 
-component \\ \\ 
-Echo Client
-\begin{itemize}
-  \item \texttt{send - send echo message}  
-  \item \texttt{reveive - receive echo reply}  
-\end{itemize}
-Echo Manager
-\begin{itemize}
-  \item \texttt{join - invoked as RPC by echo server which join the system}
-\end{itemize}
-Echo Server
-\begin{itemize}
-  \item \texttt{position - }
-\end{itemize}
+we will try our best to implement a simple paxos protocal. To garanteed the 
+correctness of paxos, we will also develop testcases during development.
 
 \section{Test Plan}
 In this project, we have 3 relatively independent component, echo client, 
 echo manager and echo server. We will mainly test echo manager and echo
-server.
+server. The diffcult part is to test the replication feature.
 
 \subsection{Functional Test}
-The functional test will test each component independently. We will try to   
-cover each function in every component, to garantee it generate expected  
-result, given expceted input.
+The functional test will test each component independently. The functional test 
+will try to cover each function in every component. Given certain input, check
+whether it response with expceted result.
 
 \subsection{Integration Test}
 The integration test is to test all the components as whole system. Replication,
-dynamic node join will be the key test point. We will explicitly kill echo server
+dynamic node join will be the key point to test. We will explicitly kill echo server
 and monitor the whole system status information to make sure everything goes well.
+With robust replication scheme, the whole system should be able to cope with limited
+number of echo server failures.
 
 \subsection{Stress Test}
 In the stress test, we will create as many echo client as possible to test
@@ -204,13 +190,13 @@ Our system should support many echo clients working simultenously and
 making progress. There are several point to evaluate. We will develop testcases
 for each of these points.
 \begin{enumerate}
-  \item Echo manager will record all the request from client, it 
-    should be able to reover from crashing, upon recovery
-    it will remain in a consistent system state. 
+  \item Echo server will record all the request from client into a log file. 
   \item Echo manager will dispatch the request to different echo server. The 
     load should be balanced among all existed echo servers.
-  \item Echo server should support replication feature. 
-  \item Echo server can dynamicly join and leave.
+  \item Echo Manger should be able to detect the failure of echo server.
+  \item Newly registered echo server should be able to appropriate join the system.
+  \item The echo server should support replication. 
+  \item The echo server should keep on working with limited number peers failed.
 \end{enumerate}
 
 \end{document}
