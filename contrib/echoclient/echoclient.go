@@ -1,5 +1,3 @@
-// Implementation of an echo client based on LSP
-
 package main
 
 import (
@@ -7,11 +5,8 @@ import (
 	"fmt"
 	"os"
 	"strings"
-	// This will compile using your version of LSP
 	"P3-f12/official/lsp12"
-	// Use proxied version of UDP
 	"P3-f12/official/lspnet"
-	// Get access to debugging messages
 	"P3-f12/official/lsplog"
 )
 
