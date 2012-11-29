@@ -147,4 +147,3 @@ func (srv *LspServer) CloseConn(connId uint16) {
 func (srv *LspServer) CloseAll() {
 	srv.iCloseAll()
 }
-

@@ -1,117 +1,129 @@
 package main
 
 import (
-	"flag"
-	"fmt"
-	"strings"
-	"os"
-	"P3-f12/official/lsp12"
-	"P3-f12/official/lspnet"
-	"P3-f12/official/lsplog"
+  "flag"
+  "fmt"
+  "os"
+  "P3-f12/official/lsp12"
+  "P3-f12/official/lspnet"
+  "P3-f12/official/lsplog"
 )
 
-func runserver(srv *lsp12.LspServer, pm *lsp12.LspClient) {
+var st_info map[uint16]uint16
+var log bool = false
+var pri uint16
 
-	for {
-		// Read from client
-		id, payload, rerr := srv.Read()
-		if rerr != nil  {
-			fmt.Printf("Connection %d has died.  Error message %s\n", id, rerr.Error())
-		} else {
-			s := string(payload)
-			lsplog.Vlogf(6, "Connection %d.  Received '%s'\n", id, s)
-			payload = []byte(strings.ToUpper(s))
+func append_log(svr *lsp12.LspServer, str string) {
+  if !log {
+    return
+  }
 
-/////////////// log to backup////////////////////////
-    //pm.Write(payload)
-/////////////////////////////////////////////////
+  for id := range(st_info) {
+    payload := []byte(fmt.Sprintf("A %s", str))
+    svr.Write(id, payload)
+  }
+}
 
-			// Echo back to client
-			werr := srv.Write(id, payload)
-			if werr != nil {
-				fmt.Printf("Connection %d.  Write failed.  Error message %s\n", id, werr.Error())
-			}
-		}
-	}
+func fetch_log(svr *lsp12.LspServer) {
+  if !log {
+    return
+  }
+
+  lsplog.Vlogf(4, "Fetching log from primary backup.\n")
+
+  payload := []byte("F")
+  svr.Write(pri, payload)
+}
+
+/**
+ * Basic echoserver routine.
+ * Wait for client connection and echo the string.
+ */
+func runserver(svr *lsp12.LspServer) {
+  for {
+    // Read from client
+    id, payload, rerr := svr.Read()
+    if lsplog.CheckReport(1, rerr) {
+      fmt.Printf("Connection %d has died.\n", id)
+
+      // storage server has died, switch primary
+      if _, ok := st_info[id]; ok {
+        lsplog.Vlogf(4, "Storage server %d has died.\n", id)
+
+        delete(st_info, id)
+
+        for id := range(st_info) {
+          pri = id
+          break
+        }
+      }
+
+      fetch_log(svr)
+    } else {
+      s := string(payload)
+      lsplog.Vlogf(6, "(C%d) Received: '%s'\n", id, s)
+
+      append_log(svr, s)
+
+      werr := svr.Write(id, payload)
+      if lsplog.CheckReport(1, werr) {
+        fmt.Printf("Connection %d. Write failed.\n", id)
+      }
+    }
+  }
 }
 
 func main() {
-	var ihelp *bool = flag.Bool("h", false, "Print help information")
-	var iport *int = flag.Int("p", 6666, "Port number")
-	var iverb *int = flag.Int("v", 1, "Verbosity (0-6)")
-	var idrop *int = flag.Int("r", 0, "Network packet drop percentage")
-	var elim *int = flag.Int("k", 5, "Epoch limit")
-	var ems *int = flag.Int("d", 2000, "Epoch duration (millisecconds)")
-  var st_num *int = flag.Int("s", 2, "Number of storage server")
+  var ihelp *bool = flag.Bool("h", false, "Print help information")
+  var iport *int = flag.Int("p", 55455, "Port number")
+  var iverb *int = flag.Int("v", 1, "Verbosity (0-6)")
+  var idrop *int = flag.Int("r", 0, "Network packet drop percentage")
+  var elim *int = flag.Int("k", 5, "Epoch limit")
+  var ems *int = flag.Int("d", 2000, "Epoch duration (millisecconds)")
+  var st_num *int = flag.Int("S", 2, "Number of storage servers")
 
-	lsplog.SetVerbose(*iverb)
-	lspnet.SetWriteDropPercent(*idrop)
+  lsplog.SetVerbose(*iverb)
+  lspnet.SetWriteDropPercent(*idrop)
 
-	flag.Parse()
-	if *ihelp {
-		flag.Usage()
-		os.Exit(0)
-	}
-	var port int = *iport
-	if flag.NArg() > 0 {
-		nread, _ := fmt.Sscanf(flag.Arg(0), "%d", &port)
-		if nread != 1 {
-			flag.Usage()
-			os.Exit(0)
-		}
-	}
+  flag.Parse()
+  if *ihelp {
+    flag.Usage()
+    os.Exit(0)
+  }
 
-  var st_info map[string]uint16
-  st_info = make(map[string]uint16)
+  var port int = *iport
+  if flag.NArg() > 0 {
+    nread, _ := fmt.Sscanf(flag.Arg(0), "%d", &port)
+    if nread != 1 {
+      flag.Usage()
+      os.Exit(0)
+    }
+  }
+
+  st_info = make(map[uint16]uint16)
 
   params := &lsp12.LspParams{*elim,*ems}
-//////////////////////////////////////////////////////////
-  //setup temporary lsp server to collect storage information
-  st_port := 55455
-  st, err := lsp12.NewLspServer(st_port, params)
-  if err != nil {
-		fmt.Printf("creat log server failed. Error message %s\n", err.Error())
-	}
 
+  // create master server on specified port
+  svr, err := lsp12.NewLspServer(port, params)
+  if lsplog.CheckReport(1, err) {
+    fmt.Printf("Failed to create echoserver.\n")
+  }
+
+  if *st_num == 0 {
+    runserver(svr)
+  } else {
+    log = true
+  }
+
+  // echoserver will wait for incoming join requests from storage servers
   for i := 0; i < *st_num; i++ {
-    connID, st_host, _ := st.Read()
-    fmt.Printf("receive [%s] from storage\n", st_host)
-    st_info[string(st_host)] = connID
-    st.CloseConn(connID)
+    connID, st_host, _ := svr.Read()
+
+    lsplog.Vlogf(4, "Received connection from storage server %s.\n", string(st_host))
+    st_info[connID] = connID
+    pri = connID
   }
 
-/////////////////////////////////////////////////////////
-  var pm_st string
-  var pm *lsp12.LspClient
-
-  for key, _ := range st_info {
-    pm_st = key
-    pm, err = lsp12.NewLspClient(pm_st, params)
-    if err != nil {
-      fmt.Printf("pick up %s as pm failed.  Error message %s\n", pm_st, err.Error())
-      //delete from st_info need handle here, try the rest 
-    } else {
-      break;
-    }
-  }
-	fmt.Printf("Echo server establishing server on port %d\n", port)
-
-  st_hosts := make([]string, len(st_info) - 1)
-  i := 0
-  for key, _ := range st_info {
-    if key == pm_st {
-      continue
-    }
-    st_hosts[i] = key
-    i++
-  }
-  cmd := fmt.Sprintf("UPGRADE#%s",strings.Join(st_hosts, ";"))
-  pm.Write([]byte(cmd))
-
-  srv, err := lsp12.NewLspServer(*iport, params)
-  if err != nil {
-    fmt.Printf("fail to build up echo server on port %d\n", *iport)
-  }
-
-  runserver(srv, pm)
+  runserver(svr)
 }
