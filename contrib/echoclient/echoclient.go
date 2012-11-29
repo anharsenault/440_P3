@@ -68,7 +68,7 @@ func main() {
 		}
 	}
 	params := &lsp12.LspParams{*elim,*ems}
-	
+
 	lsplog.SetVerbose(*iverb)
 	lspnet.SetReadDropPercent(*irdrop)
 	lspnet.SetWriteDropPercent(*iwdrop)

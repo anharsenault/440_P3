@@ -11,6 +11,16 @@ import (
 )
 
 func runserver(srv *lsp12.LspServer) {
+
+  //setup log storage server
+  params := &lsp12.LspParams{5, 2000}
+  port := 55455
+  log_srv, err := lsp12.NewLspServer(port, params)
+  if err != nil {
+		fmt.Printf("creat log server failed. Error message %s\n", err.Error())
+	}
+  logID, _, _ := log_srv.Read()
+
 	for {
 		// Read from client
 		id, payload, rerr := srv.Read()
@@ -20,6 +30,11 @@ func runserver(srv *lsp12.LspServer) {
 			s := string(payload)
 			lsplog.Vlogf(6, "Connection %d.  Received '%s'\n", id, s)
 			payload = []byte(strings.ToUpper(s))
+
+      //Backup to log server
+      log_srv.Write(logID, payload)
+      fmt.Printf("record %s to log server\n", s)
+
 			// Echo back to client
 			werr := srv.Write(id, payload)
 			if werr != nil {
@@ -49,12 +64,15 @@ func main() {
 			os.Exit(0)
 		}
 	}
+
+
 	params := &lsp12.LspParams{*elim,*ems}
 
 	lsplog.SetVerbose(*iverb)
 	lspnet.SetWriteDropPercent(*idrop)
 	fmt.Printf("Establishing server on port %d\n", port)
 	srv, err := lsp12.NewLspServer(port, params)
+
 	if err != nil {
 		fmt.Printf("... failed.  Error message %s\n", err.Error())
 	} else {

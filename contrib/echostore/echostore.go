@@ -29,21 +29,22 @@ func runserver(srv *lsp12.LspClient) {
   var str string
   var cmd int
 
-  werr := svr.Write(nil)
-  payload, rerr := svr.Read()
+  srv.Write(nil)
+  //werr := srv.Write(nil)
 
 	for {
 		// Read from master
-		id, payload, rerr := srv.Read()
+	  payload, rerr := srv.Read()
 		if rerr != nil {
-			fmt.Printf("Connection %d has died.  Error message %s\n", id, rerr.Error())
+			fmt.Printf("Echo server died.  Error message %s\n", rerr.Error())
 		} else {
+      fmt.Printf("log storage server received '%s'\n", string(payload))
+
       _, err := fmt.Sscanf(string(payload), "%d %s", &cmd, &str)
-      if lsplog.CheckReport(6, err) {
-        continue;
+      if err != nil {
+        fmt.Printf("parsing error:%s\n", err.Error())
       }
 
-			lsplog.Vlogf(6, "Connection %d.  Received '%s'\n", id, string(payload))
       switch {
       case cmd == APPEND:
         append_log(str)
@@ -57,8 +58,8 @@ func runserver(srv *lsp12.LspClient) {
 
 func main() {
 	var ihelp *bool = flag.Bool("h", false, "Print help information")
-	var iport *int = flag.Int("p", 0, "Port number")
-  var imaster *int = flag.Int("master", "localhost:55455", "Master server")
+	var iport *int = flag.Int("p", 55455, "Port number")
+  var ihost *string = flag.String("H", "localhost", "Host address")
 	var iverb *int = flag.Int("v", 1, "Verbosity (0-6)")
 	var idrop *int = flag.Int("r", 0, "Network packet drop percentage")
 	var elim *int = flag.Int("k", 5, "Epoch limit")
@@ -81,9 +82,12 @@ func main() {
 
 	lsplog.SetVerbose(*iverb)
 	lspnet.SetWriteDropPercent(*idrop)
+
 	fmt.Printf("Establishing server on port %d\n", port)
-	//srv, err := lsp12.NewLspServer(port, params)
-  cli, err := lsp12.NewLspClient(*imaster, params)
+  hostport := fmt.Sprintf("%s:%v", *ihost, *iport)
+
+  cli, err := lsp12.NewLspClient(hostport, params)
+
 	if err != nil {
 		fmt.Printf("... failed.  Error message %s\n", err.Error())
 	} else {
