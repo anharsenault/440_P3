@@ -23,8 +23,7 @@ kill:
 		awk '!/grep/ { print $$2 | "xargs kill -9" }'
 
 test:
-	./echostore/echostore -v=6 -H=localhost:55455 &
-	./echoserver/echoserver -p=55455 -v=6 -S=1 &
+	./echoserver/echoserver -p=55455 &
 
 client:
-	./echoclient/echoclient -p=55455 -v=4
+	./echoclient/echoclient -p=55455

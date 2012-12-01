@@ -3,11 +3,89 @@ package main
 import (
   "flag"
   "fmt"
+  "net/rpc"
+  "net"
+  "net/http" 
   "os"
+  "sync"
   "P3-f12/official/lsp12"
   "P3-f12/official/lspnet"
   "P3-f12/official/lsplog"
 )
+
+type Args struct {
+  Str string
+  N int
+}
+
+type Reply struct {
+  Data []string
+}
+
+type Server struct {
+  // synchronize access to local variables
+  Lock sync.Mutex
+  Id int
+  Log []string
+
+  // Lamport timestamp
+  Time int
+
+  N_high int
+  N_accept int
+  V_accept string
+}
+
+func NewServer(Id int) *Server {
+  var svr Server
+
+  svr.Id = Id
+  svr.Log = nil
+  svr.Time = 0
+  svr.N_high = Id
+  svr.N_accept = -1
+  svr.V_accept = ""
+
+  return &svr
+}
+
+func (svr *Server) AppendLog(args *Args, reply *Reply) error {
+  svr.Log = append(svr.Log, args.Str)
+
+  reply.Data = nil
+  reply.Data = append(reply.Data, args.Str)
+
+  return nil
+}
+
+func (svr *Server) FetchLog(args *Args, reply *Reply) error {
+  reply.Data = svr.Log
+
+  return nil
+}
+
+/**
+ * RPC interface for the Paxos distributed agreement algorithm.
+ **/
+func (svr *Server) Prepare(args *Args, reply *Reply) error {
+  return nil
+}
+
+func (svr *Server) PrepareOk(args *Args, reply *Reply) error {
+  return nil
+}
+
+func (svr *Server) Accept(args *Args, reply *Reply) error {
+  return nil
+}
+
+func (svr *Server) AcceptOk(args *Args, reply *Reply) error {
+  return nil
+}
+
+func (svr *Server) Commit(args *Args, reply *Reply) error {
+  return nil
+}
 
 var st_info map[uint16]uint16
 var log bool = false
@@ -78,9 +156,9 @@ func main() {
   var iport *int = flag.Int("p", 55455, "Port number")
   var iverb *int = flag.Int("v", 1, "Verbosity (0-6)")
   var idrop *int = flag.Int("r", 0, "Network packet drop percentage")
-  var elim *int = flag.Int("k", 5, "Epoch limit")
-  var ems *int = flag.Int("d", 2000, "Epoch duration (millisecconds)")
-  var st_num *int = flag.Int("S", 2, "Number of storage servers")
+  //var elim *int = flag.Int("k", 5, "Epoch limit")
+  //var ems *int = flag.Int("d", 2000, "Epoch duration (millisecconds)")
+  //var st_num *int = flag.Int("S", 0, "Number of storage servers")
 
   lsplog.SetVerbose(*iverb)
   lspnet.SetWriteDropPercent(*idrop)
@@ -100,16 +178,34 @@ func main() {
     }
   }
 
+  // register a server object to the RPC interface defined above
+  var svr_rpc *Server = new(Server)
+
+  rpc.Register(svr_rpc)
+  rpc.HandleHTTP()
+
+  // open a listening socket on a specified port
+  l, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
+  if lsplog.CheckReport(1, err) {
+    fmt.Printf("Listen() error\n")
+  }
+
+  http.Serve(l, nil)
+
   st_info = make(map[uint16]uint16)
 
+  /*
   params := &lsp12.LspParams{*elim,*ems}
 
   // create master server on specified port
   svr, err := lsp12.NewLspServer(port, params)
   if lsplog.CheckReport(1, err) {
     fmt.Printf("Failed to create echoserver.\n")
-  }
+  }*/
 
+  //runserver(svr)
+
+/*
   if *st_num == 0 {
     runserver(svr)
   } else {
@@ -125,5 +221,5 @@ func main() {
     pri = connID
   }
 
-  runserver(svr)
+  runserver(svr)*/
 }

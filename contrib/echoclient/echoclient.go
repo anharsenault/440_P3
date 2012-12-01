@@ -3,44 +3,63 @@ package main
 import (
   "flag"
   "fmt"
+  "log"
+  "net/rpc"
   "os"
   "strings"
-  "P3-f12/official/lsp12"
   "P3-f12/official/lspnet"
   "P3-f12/official/lsplog"
 )
+
+type Args struct {
+  Str string
+  N int
+}
+
+type Reply struct {
+  Data []string
+}
 
 /**
  * Echo client main routine.
  * Wait for user input and forward to the echoserver.
  */
-func runclient(cli *lsp12.LspClient) {
-  var str string
+func runclient(cli *rpc.Client) {
+  var args Args
+  var reply Reply
 
   for {
     // read next token from input
     fmt.Printf("CLI-SRV: ")
-    _, err := fmt.Scan(&str)
-    if err != nil || strings.EqualFold(str, "quit") {
+    _, err := fmt.Scan(&args.Str)
+    if err != nil || strings.EqualFold(args.Str, "quit") {
       cli.Close()
       return
     }
 
-    // send to server
-    werr := cli.Write([]byte(str))
-    if werr != nil {
-      fmt.Printf("Lost contact with server on write: %s\n", werr.Error())
-      return
-    }
+    if strings.EqualFold(args.Str, "%%") {
+      // send to server
+      werr := cli.Call("Server.FetchLog", args, &reply)
+      if werr != nil {
+        fmt.Printf("Lost contact with server on write: %s\n", werr.Error())
+        return
+      }
 
-    // read from server
-    payload, rerr := cli.Read()
-    if rerr != nil {
-      fmt.Printf("Lost contact with server on read: %s\n", rerr.Error())
-      return
-    }
+      log.Println("Dumping log.")
+      for i := 0; i < len(reply.Data); i++ {
+        fmt.Printf("%s ", reply.Data[i])
+      }
+      fmt.Printf("\n")
+    } else {
+      // send to server
+      werr := cli.Call("Server.AppendLog", args, &reply)
+      if werr != nil {
+        fmt.Printf("Lost contact with server on write: %s\n", werr.Error())
+        return
+      }
 
-    fmt.Printf("SRV-CLI: [%s]\n", string(payload))
+      fmt.Printf("SRV-CLI: [%s]\n", reply.Data[0])
+    }
   }
 
   fmt.Printf("Exiting.\n")
@@ -51,11 +70,6 @@ func main() {
   var ihelp *bool = flag.Bool("h", false, "Show help information")
   var iport *int = flag.Int("p", 55455, "Port number")
   var ihost *string = flag.String("H", "localhost", "Host address")
-  var iverb *int = flag.Int("v", 1, "Verbosity (0-6)")
-  var irdrop *int = flag.Int("r", 0, "Network read packet drop percentage")
-  var iwdrop *int = flag.Int("w", 0, "Network write packet drop percentage")
-  var elim *int = flag.Int("k", 5, "Epoch limit")
-  var ems *int = flag.Int("d", 2000, "Epoch duration (millisecconds)")
 
   flag.Parse()
   if *ihelp {
@@ -79,18 +93,12 @@ func main() {
     }
   }
 
-  params := &lsp12.LspParams{*elim,*ems}
-
-  lsplog.SetVerbose(*iverb)
-  lspnet.SetReadDropPercent(*irdrop)
-  lspnet.SetWriteDropPercent(*iwdrop)
-
   hostport := fmt.Sprintf("%s:%v", *ihost, *iport)
-  fmt.Printf("Connecting to server at %s\n", hostport)
+  log.Printf("Connecting to server: %s\n", hostport)
 
-  cli, err := lsp12.NewLspClient(hostport, params)
+  cli, err := rpc.DialHTTP("tcp", hostport)
   if lsplog.CheckReport(1, err) {
-    return
+    log.Fatalln("rpc.DialHTTP() error")
   }
 
   runclient(cli)
