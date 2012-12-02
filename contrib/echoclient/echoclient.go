@@ -7,51 +7,38 @@ import (
   "net/rpc"
   "os"
   "strings"
-  "P3-f12/official/lspnet"
-  "P3-f12/official/lsplog"
+  "P3-f12/contrib/echoproto"
 )
-
-type Args struct {
-  Str string
-  N int
-}
-
-type Reply struct {
-  Data []string
-}
 
 /**
  * Echo client main routine.
  * Wait for user input and forward to the echoserver.
  */
 func runclient(cli *rpc.Client) {
-  var args Args
-  var reply Reply
+  var args echoproto.Args
+  var reply echoproto.Reply
 
   for {
     // read next token from input
     fmt.Printf("CLI-SRV: ")
     _, err := fmt.Scan(&args.Str)
     if err != nil || strings.EqualFold(args.Str, "quit") {
-      cli.Close()
-      return
+      break
     }
 
     if strings.EqualFold(args.Str, "%%") {
-      // send to server
       werr := cli.Call("Server.FetchLog", args, &reply)
       if werr != nil {
         fmt.Printf("Lost contact with server on write: %s\n", werr.Error())
         return
       }
 
-      log.Println("Dumping log.")
+      log.Println("Dumping contents of log.")
       for i := 0; i < len(reply.Data); i++ {
         fmt.Printf("%s ", reply.Data[i])
       }
       fmt.Printf("\n")
     } else {
-      // send to server
       werr := cli.Call("Server.AppendLog", args, &reply)
       if werr != nil {
         fmt.Printf("Lost contact with server on write: %s\n", werr.Error())
@@ -97,8 +84,8 @@ func main() {
   log.Printf("Connecting to server: %s\n", hostport)
 
   cli, err := rpc.DialHTTP("tcp", hostport)
-  if lsplog.CheckReport(1, err) {
-    log.Fatalln("rpc.DialHTTP() error")
+  if err != nil {
+    log.Fatalln("rpc.DialHTTP() error: %s", err.Error())
   }
 
   runclient(cli)
