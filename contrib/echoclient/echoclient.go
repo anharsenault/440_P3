@@ -17,20 +17,20 @@ import (
 func runclient(cli *rpc.Client) {
   var args echoproto.Args
   var reply echoproto.Reply
+  var err, werr error
 
   for {
     // read next token from input
     fmt.Printf("CLI-SRV: ")
-    _, err := fmt.Scan(&args.Str)
-    if err != nil || strings.EqualFold(args.Str, "quit") {
+    _, err = fmt.Scan(&args.V)
+    if err != nil || strings.EqualFold(args.V, "quit") {
       break
     }
 
-    if strings.EqualFold(args.Str, "%%") {
-      werr := cli.Call("Server.FetchLog", args, &reply)
+    if strings.EqualFold(args.V, "%%") {
+      werr = cli.Call("Server.FetchLog", args, &reply)
       if werr != nil {
-        fmt.Printf("Lost contact with server on write: %s\n", werr.Error())
-        return
+        break
       }
 
       log.Println("Dumping contents of log.")
@@ -39,17 +39,20 @@ func runclient(cli *rpc.Client) {
       }
       fmt.Printf("\n")
     } else {
-      werr := cli.Call("Server.AppendLog", args, &reply)
-      if werr != nil {
-        fmt.Printf("Lost contact with server on write: %s\n", werr.Error())
-        return
+      werr = cli.Call("Server.AppendLog", args, &reply)
+      if err != nil {
+        break
       }
 
       fmt.Printf("SRV-CLI: [%s]\n", reply.Data[0])
     }
   }
 
-  fmt.Printf("Exiting.\n")
+  if werr != nil {
+    log.Printf("Lost contact with server: %s\n", werr.Error())
+  }
+
+  log.Println("Exiting.")
   cli.Close()
 }
 
