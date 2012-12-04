@@ -5,7 +5,7 @@ import(
   "fmt"
   "log"
   "net"
-  "net/http" 
+  "net/http"
   "net/rpc"
   "os"
   "runtime"
@@ -278,6 +278,7 @@ func main() {
   if err != nil {
     log.Fatalln("net.Listen() error:", err.Error())
   }
+  fmt.Printf("listen on port %d\n", port)
 
   go http.Serve(conn, nil)
 

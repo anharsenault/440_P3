@@ -1,12 +1,15 @@
-package main
+package echoclient
 
 import (
+  "net/rpc"
+  "fmt"
+/*
   "flag"
   "fmt"
   "log"
-  "net/rpc"
   "os"
   "strings"
+  */
   "P3-f12/contrib/echoproto"
 )
 
@@ -14,6 +17,8 @@ import (
  * Echo client main routine.
  * Wait for user input and forward to the echoserver.
  */
+
+/*
 func runclient(cli *rpc.Client) {
   var args echoproto.Args
   var reply echoproto.Reply
@@ -92,4 +97,54 @@ func main() {
   }
 
   runclient(cli)
+}*/
+
+type EchoClient struct {
+  rpcAddr string
+  rpcSvr *rpc.Client
+}
+
+func NewEchoClient(addr string) (*EchoClient, error) {
+  var cli EchoClient
+
+  client, err := rpc.DialHTTP("tcp", addr)
+  if err != nil {
+    return nil, err
+  }
+
+  cli.rpcAddr = addr
+  cli.rpcSvr = client
+
+  return &cli, nil
+}
+
+func (cli *EchoClient)Send(str string) (string, error) {
+  var args echoproto.Args
+  var reply echoproto.Reply
+
+  args.Str = str
+  args.N = 1
+
+  werr := cli.rpcSvr.Call("Server.AppendLog", args, &reply)
+  if werr != nil {
+    fmt.Printf("Lost contact with server on write: %s\n", werr.Error())
+    return "", werr
+  }
+
+  fmt.Printf("echo client send replay %d %s\n", reply.Answer, reply.Data[0])
+
+  return reply.Data[0], nil
+}
+
+func (cli *EchoClient)Fetch() ([]string, error) {
+  var args echoproto.Args
+  var reply echoproto.Reply
+
+  werr := cli.rpcSvr.Call("Server.FetchLog", args, &reply)
+  if werr != nil {
+    fmt.Printf("Lost contact with server on write: %s\n", werr.Error())
+    return nil, werr
+  }
+
+  return reply.Data, nil
 }
