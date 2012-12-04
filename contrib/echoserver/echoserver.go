@@ -278,7 +278,6 @@ func main() {
   if err != nil {
     log.Fatalln("net.Listen() error:", err.Error())
   }
-  fmt.Printf("listen on port %d\n", *iport)
 
   go http.Serve(conn, nil)
 
