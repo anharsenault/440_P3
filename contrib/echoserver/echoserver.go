@@ -5,10 +5,10 @@ import (
   "fmt"
   "log"
   "net"
-  "net/http" 
+  "net/http"
   "net/rpc"
   "os"
-  "strings"
+  //"strings"
   "sync"
   "P3-f12/contrib/echoproto"
 )
@@ -97,15 +97,17 @@ func (svr *Server) Commit(args *echoproto.Args, reply *echoproto.Reply) error {
 func main() {
   var ihelp *bool = flag.Bool("h", false, "Print help information")
   var iport *int = flag.Int("p", 55455, "Port number")
+  /*
   var paxos *string = flag.String("P", "",
       "Hostnames of all other paxos nodes")
+  */
 
   flag.Parse()
   if *ihelp {
     flag.Usage()
     os.Exit(0)
   }
-
+/*
   var clients []*rpc.Client = nil
   hosts := strings.Split(*paxos, ",")
   for i := 0; i < len(hosts); i++ {
@@ -116,7 +118,7 @@ func main() {
 
     clients = append(clients, cli)
   }
-
+*/
   var port int = *iport
   if flag.NArg() > 0 {
     nread, _ := fmt.Sscanf(flag.Arg(0), "%d", &port)
@@ -137,6 +139,7 @@ func main() {
   if err != nil {
     log.Fatalln("net.Listen() error: %s", err.Error())
   }
+  fmt.Printf("listen on port %d\n", port)
 
   http.Serve(l, nil)
 }
