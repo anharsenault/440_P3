@@ -3,15 +3,68 @@ package main
 import (
   "flag"
   "fmt"
+  "net"
+  "net/http" 
+  "net/rpc"
   "os"
   "strings"
-  "P3-f12/official/lsp12"
-  "P3-f12/official/lspnet"
-  "P3-f12/official/lsplog"
+  "sync"
+  "P3-f12/contrib/echoproto"
 )
 
 var log []string
 var peers []string
+
+type Store struct {
+  Id int
+  Lock sync.Mutex
+
+  Log []string
+  Peers []*rpc.Client
+  Primary bool
+}
+
+func NewStore(Id int) *Store {
+  var svr Store
+
+  svr.Id = Id
+  svr.Log = nil
+  svr.Peers = nil
+  svr.Primary = false
+
+  return &svr
+}
+
+func (svr *Store) info(fun string) {
+  log.Printf("B%d %s: Primary = %d\n",
+      svr.Id, fun, svr.Primary)
+}
+
+func (svr *Store) Stream(args *echoproto.Args, reply *echoproto.Reply) {
+  var err error
+
+  if !svr.Primary {
+    return
+  }
+
+  for i := 0; i < len(svr.Peers); i++ {
+    err = rpc.Call("Store.AppendLog", args, reply)
+
+    if err != nil {
+      log.Println("Backend storage server down.")
+    }
+  }
+}
+
+func (svr *Store) AppendLog(args *echoproto.Args, reply *echoproto.Reply) error {
+  svr.Lock.Lock()
+  svr.Log = append(svr.Log, args.V)
+  svr.Lock.Unlock()
+
+  svr.Stream(args, reply)
+
+  return nil
+}
 
 func append_log(str string) {
   log = append(log, str)
@@ -88,6 +141,15 @@ func main() {
       os.Exit(0)
     }
   }
+
+  runtime.GOMAXPROCS(8)
+
+  // register a server object to the RPC interface defined above
+  svr = NewStore(*id)
+  svr.Lock.Lock()
+
+  rpc.Register(svr)
+  rpc.HandleHTTP()
 
   params := &lsp12.LspParams{*elim,*ems}
 
