@@ -1,6 +1,6 @@
 CC = go build
 
-all: echoclient/echoclient echoserver/echoserver
+all: echoclient/echoclient echoserver/echoserver httpserver/httpserver
 #echostore/echostore
 
 echoclient/echoclient:
@@ -8,6 +8,9 @@ echoclient/echoclient:
 
 echoserver/echoserver:
 	cd echoserver; $(CC) echoserver.go
+
+httpserver/httpserver:
+	cd httpserver; $(CC) httpserver.go
 
 #echostore/echostore:
 #	cd echostore; $(CC) echostore.go
@@ -36,5 +39,5 @@ client:
 	./echoclient/echoclient -p=55458
 
 clean: kill
-	rm -rf echoclient/echoclient echoserver/echoserver
+	rm -rf echoclient/echoclient echoserver/echoserver httpserver/httpserver
 #rm echostore/echostore
