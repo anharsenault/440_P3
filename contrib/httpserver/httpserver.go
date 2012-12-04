@@ -34,7 +34,7 @@ type HttpClient struct {
 func newHttpClient() (*HttpClient) {
   var cli HttpClient
 
-  cli.bindAddr = "localhost:8080"
+  cli.bindAddr = ":55555"
   cli.echoClients = make([](*(echoclient.EchoClient)), 0)
 
   return &cli
