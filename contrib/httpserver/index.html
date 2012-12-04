@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<title>LEFT TEMPLATE</title>
+		
+		<!-- CSS -->
+		<link rel="stylesheet" href="css/style.css" type="text/css" media="screen" />
+		<link rel="stylesheet" href="css/social-icons.css" type="text/css" media="screen" />
+	
+		<!-- THEME -->
+		<link rel="stylesheet" href="skins/paper-red/style.css" type="text/css" media="screen" />
+		
+		<!-- GOOGLE FONTS -->
+		<link href='http://fonts.googleapis.com/css?family=Yanone+Kaffeesatz' rel='stylesheet' type='text/css'>
+				
+    <link rel="stylesheet" href="http://code.jquery.com/ui/1.9.2/themes/base/jquery-ui.css" />
+    <script src="http://code.jquery.com/jquery-1.8.3.js"></script>
+    <script src="http://code.jquery.com/ui/1.9.2/jquery-ui.js"></script>
+	  <script>
+    $(function() {
+      var tabs = $("#tabs").tabs();
+      $(".send").live('click', function(event) {
+        var id = $(this).attr('id')
+        var txtArea = $(" #" + id + ".txt")
+        var str = txtArea.val()
+        var idx = $(this).attr('id') - 1
+        
+        $.get("send", {para:str, index:idx}, function(data) {
+          txtArea.val("Server Respose:" + data);
+        })
+      });
+
+      $(".fetch").live('click', function(event) {
+        var id = $(this).attr('id')
+        var idx = $(this).attr('id') - 1
+        var txtArea = $(" #" + id + ".txt")
+
+        $.get("fetch", {index:idx}, function(data) {
+          txtArea.val("Server Respose:\n" + data);
+        })
+      });
+      
+      $("#new").click(function(event) {
+        $( "#dialog-form" ).dialog( "open" );
+      })
+
+      $("#dialog-form").dialog({
+            autoOpen: false,
+            height: 300,
+            width: 350,
+            modal: true,
+            buttons: {
+                "Create New Echo Client": function() {
+                  var idx = $("#clients li").length + 1
+                  var addr = $("#addr").val()
+
+                  $.get("new", {index:idx, host:addr}, function(data) {
+                    if (data == 0) {
+                      $("#clients").append(
+                      "<li><a href=\"#tab" + idx + "\">Client " + idx + "</a></li>")
+                  
+                      tabs.append(
+                      "<div id=\"tab" + idx + "\"><textarea class=\"txt\" id="+idx+
+                      " row=\"10\" cols=\"58\">" +
+                      "hello world</textarea><button class=\"send\" id="+ idx + 
+                      ">Send</button>" + 
+                      "<button class=\"fetch\" id=" + idx + ">Fetch</button></div>")
+
+                      tabs.tabs("refresh");
+                    } else {
+                      alert("Invalid Address! " + addr)
+                    }
+                  })
+
+                  $(this).dialog("close");
+                },
+
+                Cancel: function() {
+                    $(this).dialog("close");
+                }
+            },
+            close: function() {
+                allFields.val("").removeClass("ui-state-error");
+            }
+        });
+      });
+    </script>	
+
+    <style>
+        body { font-size: 75.5%; }
+        label, input { display:block; }
+        input.text { margin-bottom:12px; width:95%; padding: .4em; }
+        fieldset { padding:0; border:0; margin-top:25px; }
+        h1 { font-size: 2.0em; margin: .6em 0; }
+        div#users-contain { width: 350px; margin: 20px 0; }
+        div#users-contain table { margin: 1em 0; border-collapse: collapse; width: 100%; }
+        div#users-contain table td, div#users-contain table th { border: 1px solid #eee; padding: .6em 10px; text-align: left; }
+        .ui-dialog .ui-state-error { padding: .3em; }
+        .validateTips { border: 1px solid transparent; padding: 0.3em; }
+    </style>
+	</head>
+	<body>
+	<div id="dialog-form" title="Create New Echo Client">
+    <p class="validateTips">All form fields are required.</p>
+ 
+    <form>
+    <fieldset>
+        <label for="name">Address</label>
+        <input type="text" name="addr" id="addr" class="text ui-widget-content ui-corner-all"/>
+    </fieldset>
+    </form>
+</div>
+	<!-- WRAPPER -->
+	<div id="wrapper">
+	
+		<!-- SIDEBAR -->
+		<div id="sidebar">
+			<!-- logo -->
+      <!--<a href="index.html"><H2>155440 P3</H2></a> -->
+      <a href="index.html"><img src="img/logo.png" alt="Left template" id="logo" /></a>
+
+      <ul id="nav" class="sf-menu sf-vertical">
+				<li class="current-menu-item"><a href="#" id="new">Create New Client</a></li>
+			</ul>
+		</div>
+		<!-- ENDS SIDEBAR -->
+		
+		<!-- MAIN -->
+		<div id="main">
+			<!-- CONTENT -->
+			<div id="content">
+				<!-- PAGE CONTENT -->
+				<div id="page-content">
+					<!-- feature blocks -->
+					<h1 class="header-line">ECHO CLIENT</h1>
+
+          <div id="tabs">
+          <ul id="clients">
+            <!--
+            <li><a href="#tabs-1">Client 1</a></li>
+            <li><a href="#tabs-2">Client 2</a></li>
+            <li><a href="#tabs-3">Client 3</a></li>
+            -->
+          </ul>
+          <div id="tab_entry"></div>
+          <!--
+          <div id="tabs-1">
+          <textarea row="10" cols="58">
+            hello world
+          </textarea>
+          <button> Send </button>
+          <button> Fetch </button>
+          </div>
+
+          <div id="tabs-2">
+          <p>test tab2</p>
+          </div>
+
+          <div id="tabs-3">
+          <p>test tab3</p>
+          </div>
+          -->
+        </div>
+				</div>
+				<!-- ENDS PAGE-CONTENT -->
+			
+			</div>
+			<!-- ENDS CONTENT -->
+			
+		</div>
+		<!-- ENDS MAIN -->
+	</div>
+	<!-- ENDS WRAPPER -->
+
+	<!-- FOOTER -->
+	<div id="footer">
+		<!-- FOOTER-WRAPPER -->
+		<div id="footer-wrapper">
+			<!-- footer-bottom -->
+			<div id="footer-bottom">
+			</div>
+			<!-- ENDS footer-bottom -->
+		</div>
+		<!-- ENDS FOOTER-WRAPPER -->
+	</div>
+	<!-- ENDS FOOTER -->
+	
+	</body>
+</html>

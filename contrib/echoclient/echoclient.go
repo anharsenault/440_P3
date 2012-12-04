@@ -122,7 +122,7 @@ func (cli *EchoClient)Send(str string) (string, error) {
   var args echoproto.Args
   var reply echoproto.Reply
 
-  args.Str = str
+  args.V = str
   args.N = 1
 
   werr := cli.rpcSvr.Call("Server.AppendLog", args, &reply)
@@ -131,7 +131,7 @@ func (cli *EchoClient)Send(str string) (string, error) {
     return "", werr
   }
 
-  fmt.Printf("echo client send replay %d %s\n", reply.Answer, reply.Data[0])
+  fmt.Printf("echo client send replay %d %s\n", reply.Response, reply.Data[0])
 
   return reply.Data[0], nil
 }
