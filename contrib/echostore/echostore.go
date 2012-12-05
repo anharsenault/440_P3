@@ -3,23 +3,23 @@ package main
 import (
   "flag"
   "fmt"
+  "log"
   "net"
   "net/http" 
   "net/rpc"
   "os"
-  "strings"
+  "runtime"
   "sync"
+  "time"
   "P3-f12/contrib/echoproto"
 )
-
-var log []string
-var peers []string
 
 type Store struct {
   Id int
   Lock sync.Mutex
 
   Log []string
+  Master *rpc.Client
   Peers []*rpc.Client
   Primary bool
 }
@@ -48,7 +48,7 @@ func (svr *Store) Stream(args *echoproto.Args, reply *echoproto.Reply) {
   }
 
   for i := 0; i < len(svr.Peers); i++ {
-    err = rpc.Call("Store.AppendLog", args, reply)
+    err = svr.Peers[i].Call("Store.AppendLog", args, reply)
 
     if err != nil {
       log.Println("Backend storage server down.")
@@ -66,17 +66,31 @@ func (svr *Store) AppendLog(args *echoproto.Args, reply *echoproto.Reply) error 
   return nil
 }
 
-func append_log(str string) {
-  log = append(log, str)
+func (svr *Store) FetchLog(args *echoproto.Args, reply *echoproto.Reply) error {
+  svr.Lock.Lock()
+  reply.Data = svr.Log
+  svr.Lock.Unlock()
+
+  return nil
 }
 
+func (svr *Store) Upgrade(args *echoproto.Args, reply *echoproto.Reply) error {
+  svr.Lock.Lock()
+  reply.Data = svr.Log
+  svr.Lock.Unlock()
+
+  return nil
+}
+
+/*
 func upgrade(st_peers string) {
   peers = strings.Split(string(st_peers), ";")
   fmt.Printf("peers len: %d\n", len(peers))
 
   return
 }
-
+*/
+/*
 func runserver(cli *lsp12.LspClient) {
   var str string
 
@@ -90,7 +104,7 @@ func runserver(cli *lsp12.LspClient) {
       fmt.Printf("Echo server has died.\n")
       return
     }
-    
+
     str = string(payload)
     lsplog.Vlogf(3, "Storage server received '%s'.\n", str)
 
@@ -113,19 +127,20 @@ func runserver(cli *lsp12.LspClient) {
     }
   }
 }
+*/
 
 func main() {
+  var svr *Store
+  var hostname string
+  var block chan int
+  var err error
+  var args echoproto.Args
+  var reply echoproto.Reply
+
   var ihelp *bool = flag.Bool("h", false, "Print help information")
   var iport *int = flag.Int("p", 0, "Port number")
-  var iverb *int = flag.Int("v", 1, "Verbosity (0-6)")
-  var idrop *int = flag.Int("r", 0, "Network packet drop percentage")
-  var elim *int = flag.Int("k", 5, "Epoch limit")
-  var ems *int = flag.Int("d", 2000, "Epoch duration (millisecconds)")
-
   var master *string = flag.String("H", "localhost:55455", "echo server address")
-
-  lsplog.SetVerbose(*iverb)
-  lspnet.SetWriteDropPercent(*idrop)
+  var id *int = flag.Int("i", 0, "Id number")
 
   flag.Parse()
   if *ihelp {
@@ -151,12 +166,33 @@ func main() {
   rpc.Register(svr)
   rpc.HandleHTTP()
 
-  params := &lsp12.LspParams{*elim,*ems}
+  hostname = fmt.Sprintf(":%d", *iport)
 
-  cli, err := lsp12.NewLspClient((*master), params)
-  if lsplog.CheckReport(1, err) {
-    fmt.Printf("Failed to create storage server.\n", err.Error())
+  // open a listening socket on a specified port
+  conn, err := net.Listen("tcp", hostname)
+  if err != nil {
+    log.Fatalln("net.Listen() error:", err.Error())
   }
 
-  runserver(cli)
+  go http.Serve(conn, nil)
+
+  svr.Master, err = rpc.DialHTTP("tcp", *master)
+
+  for j := 0; (err != nil) && (j < echoproto.N_ATTEMPTS); j++ {
+    log.Println("rpc.DialHTTP() failed, retrying")
+
+    time.Sleep(1000 * time.Millisecond)
+    svr.Master, err = rpc.DialHTTP("tcp", *master)
+  }
+
+  if err != nil {
+    log.Fatalln("rpc.DialHTTP() error:", err.Error())
+  }
+
+  svr.Master.Call("Server.Register", args, &reply)
+
+  svr.Lock.Unlock()
+
+  block = make(chan int)
+  <- block
 }
