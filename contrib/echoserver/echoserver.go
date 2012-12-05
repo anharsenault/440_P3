@@ -14,10 +14,6 @@ import(
   "P3-f12/contrib/echoproto"
 )
 
-const(
-  N_ATTEMPTS = 3
-)
-
 type Server struct {
   // synchronize access to local variables
   Lock sync.Mutex
@@ -34,6 +30,10 @@ type Server struct {
   V_accept string
 
   Peers []*rpc.Client
+
+  Store []string
+  Primary *rpc.Client
+  Backend []*rpc.Client
 }
 
 func NewServer(Id, F int) *Server {
@@ -189,6 +189,22 @@ func (svr *Server) FetchLog(args *echoproto.Args, reply *echoproto.Reply) error 
   return nil
 }
 
+func (svr *Server) Register(args *echoproto.Args, reply *echoproto.Reply) error {
+  svr.Lock.Lock()
+
+  svr.Store = append(svr.Store, args.V)
+
+  // increment the Lamport timestamp and copy the current version of the log
+  svr.update()
+  reply.Data = svr.Log
+
+  svr.info("FetchLog()")
+
+  svr.Lock.Unlock()
+
+  return nil
+}
+
 // RPC interface for the Paxos protocol.
 func (svr *Server) Prepare(args *echoproto.Args, reply *echoproto.Reply) error {
   svr.Lock.Lock()
@@ -246,11 +262,29 @@ func (svr *Server) Commit(args *echoproto.Args, reply *echoproto.Reply) error {
   return nil
 }
 
+func connect(host string) *rpc.Client {
+  cli, err := rpc.DialHTTP("tcp", host)
+
+  for j := 0; (err != nil) && (j < echoproto.N_ATTEMPTS); j++ {
+    log.Println("rpc.DialHTTP() failed, retrying")
+
+    time.Sleep(1000 * time.Millisecond)
+    cli, err = rpc.DialHTTP("tcp", host)
+  }
+
+  if err != nil {
+    log.Fatalln("rpc.DialHTTP() error:", err.Error())
+  }
+
+  return cli
+}
+
 func main() {
   var svr *Server
   var clients []*rpc.Client
   var hostname string
   var block chan int
+  var err error
 
   var ihelp *bool = flag.Bool("h", false, "Print help information")
   var iport *int = flag.Int("p", 55455, "Port number")
@@ -284,20 +318,7 @@ func main() {
   clients = nil
 
   for i := 0; i < flag.NArg(); i++ {
-    cli, err := rpc.DialHTTP("tcp", flag.Arg(i))
-
-    for j := 0; (err != nil) && (j < N_ATTEMPTS); j++ {
-      log.Println("rpc.DialHTTP() failed, retrying")
-
-      time.Sleep(1000 * time.Millisecond)
-      cli, err = rpc.DialHTTP("tcp", flag.Arg(i))
-    }
-
-    if err != nil {
-      log.Fatalln("rpc.DialHTTP() error:", err.Error())
-    }
-
-    clients = append(clients, cli)
+    clients = append(clients, connect(flag.Arg(i)))
   }
 
   svr.Peers = clients

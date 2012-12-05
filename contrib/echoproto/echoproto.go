@@ -7,6 +7,10 @@ const (
   ACCEPT_REJECT
 )
 
+const(
+  N_ATTEMPTS = 3
+)
+
 type Args struct {
   N int
   V string
