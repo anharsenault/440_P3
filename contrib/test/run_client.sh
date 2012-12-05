@@ -1,3 +1,3 @@
 #!/bin/bash
 
-./echoclient/echoclient -p=55458
+./cmdlineclient/cmdlineclient -p=55458

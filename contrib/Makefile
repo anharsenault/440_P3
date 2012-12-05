@@ -1,9 +1,12 @@
 CC = go build
 
-all: echoclient/echoclient echoserver/echoserver echostore/echostore httpserver/httpserver
+all: echoclient/echoclient echoserver/echoserver echostore/echostore cmdlineclient/cmdlineclient httpserver/httpserver
 
 echoclient/echoclient:
 	cd echoclient; $(CC) echoclient.go
+
+cmdlineclient/cmdlineclient:
+	cd cmdlineclient; $(CC) cmdlineclient.go
 
 echoserver/echoserver:
 	cd echoserver; $(CC) echoserver.go
@@ -20,4 +23,4 @@ kill:
 	./test/kill_all.sh
 
 clean: kill
-	rm -rf echoclient/echoclient echoserver/echoserver echostore/echostore httpserver/httpserver
+	rm -rf echoclient/echoclient echoserver/echoserver echostore/echostore cmdlineclient/cmdlineclient httpserver/httpserver
